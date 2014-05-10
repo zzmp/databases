@@ -1,8 +1,8 @@
-var express = require("express");
-var bodyParser = require("body-parser");
-var mysql = require("mysql");
+var Sequelize = require('sequelize');
+var _ = require('underscore');
+var express = require('express');
+var bodyParser = require('body-parser');
 var app = express();
-var Sequelize = require("sequelize");
 
 // the following thing takes in db name, user, pw
 var sequelize = new Sequelize('ormchat', 'root', '', {
@@ -12,7 +12,7 @@ var sequelize = new Sequelize('ormchat', 'root', '', {
 
 sequelize.authenticate().complete(function(err) {
   if (!!err) {
-    console.log('Unable to connect to the database:', err)
+    console.log('Unable to connect to the database:', err);
   } else {
     console.log('Connection has been established successfully.');
   }
@@ -24,11 +24,11 @@ var Messages = sequelize.define('Messages', {
 });
 
 var Users = sequelize.define('Users', {
-  username: Sequelize.STRING
+  name: Sequelize.STRING
 });
 
 var Rooms = sequelize.define('Rooms', {
-  roomname: Sequelize.STRING
+  name: Sequelize.STRING
 });
 
 Users.hasOne(Messages, {foreignKey: 'userId', foreignKeyConstraint: true});
@@ -42,10 +42,10 @@ sequelize.sync();
 
 
 var defaultCorsHeaders = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "access-control-allow-headers": "content-type, accept",
-  "access-control-max-age": 10 // Seconds.
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'access-control-allow-headers': 'content-type, accept',
+  'access-control-max-age': 10 // Seconds.
 };
 
 var port = 3000;
@@ -64,24 +64,24 @@ app.use('/', function(req, res, next) {
 });
 
 // Allow CORS
-app.options('/:room', function(req, res, next) {
+app.options('/:room', function(req, res) {
   console.log('OPTIONS');
   res.status(200);
   res.end();
 });
 
 // Post
-app.post('/:room', bodyParser(), function(req, res, next) {
+app.post('/:room', bodyParser(), function(req, res) {
   req.body.username = req.body.username || 'kewlKid';
   req.body.roomname = req.params.room;
   console.log('POST');
-  Users.findOrCreate({username: req.body.username}).success(function(user, created) {
-    Rooms.findOrCreate({roomname: req.body.roomname}).success(function(room, created) {
+  Users.findOrCreate({name: req.body.username}).success(function(user) {
+    Rooms.findOrCreate({name: req.body.roomname}).success(function(room) {
       Messages.create({
-        username: user.id,
-        roomname: room.id,
+        userId: user.id,
+        roomId: room.id,
         body: req.body.message
-      }).success(function(message, created) {
+      }).success(function(message) {
         res.status(201);
         res.end(JSON.stringify({
           id: message.id,
@@ -94,58 +94,31 @@ app.post('/:room', bodyParser(), function(req, res, next) {
 });
 
 // Get
-// app.get('/:room')
-
-
-
-
-
-//   dbConnection.query('INSERT INTO users(name) values(?);', [req.body.username], function(err, rows, fields) {
-//     dbConnection.query('INSERT INTO rooms(name) values(?);', [req.body.roomname], function(err, rows, fields) {
-//       var statement = 'INSERT INTO messages(body, userId, roomId) ' +
-//                       'values(?, ' +
-//                         '(SELECT ID FROM Users where name = ?), ' +
-//                         '(SELECT ID FROM Rooms where name = ?)' +
-//                       ');';
-//       dbConnection.query(statement, [req.body.message, req.body.username, req.body.roomname || 'lobby'], function(err, rows, fields) {
-//         if (err) {
-//           res.status(500);
-//           res.end();
-//         } else {
-//           dbConnection.query('SELECT * FROM messages WHERE id=?;', [rows.insertId], function(err, rows, fields) {
-//             if (err) {
-//               res.status(500);
-//               res.end();
-//             } else {
-//               res.end(JSON.stringify({results: rows}));
-//             }
-//           });
-//         }
-//       });
-//     });
-//   });
-// });
-
-// // Get
-// app.get('/:room', function(req, res, next) {
-//   console.log('GET');
-//   dbConnection.query('SELECT * FROM messages WHERE roomId = ' +
-//                     '(SELECT roomId FROM rooms WHERE name=?);', [req.params.room], function(err,rows,fields) {
-
-//     if (err) {
-//       res.status(500);
-//       res.end();
-//     } else if (rows.length === 0 ) {
-//       res.status(404);
-//       res.end();
-//     } else {
-//       res.status(200);
-//       res.set('Content-Type', 'application/json');
-//       res.end(JSON.stringify({results: rows}));
-//     }
-//   });
-// });
-
+app.get('/:room', function (req, res) {
+  Rooms.find({
+    where: { name: req.params.room }
+  }).success(function(room) {
+    Messages.findAll({
+      where: { roomId: room.id },
+      include: [
+        {model: Users, as: 'User'},
+        {model: Rooms, as: 'Room'}
+      ]
+    }).success(function(messages) {
+      messages = _.map(messages, function(message) {
+        var obj = {};
+        obj.username = message.user.name;
+        obj.roomname = message.room.name;
+        obj.message = message.body;
+        obj.createdAt = message.createdAt;
+        obj.updatedAt = message.updatedAt;
+        return obj;
+      });
+      res.status(200);
+      res.end(JSON.stringify(messages));
+    });
+  });
+});
 
 // Serve static files from /client
 app.use('/', express.static(__dirname + '/client'));
