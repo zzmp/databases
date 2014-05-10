@@ -14,7 +14,7 @@ describe("Persistent Node Chat Server", function() {
       user: "root",
     /* and password. */
       //password: "",
-      database: "ormchat"
+      database: "chat"
     });
     dbConnection.connect();
 

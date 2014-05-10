@@ -18,13 +18,13 @@ USE chat;
 
 CREATE TABLE `Users` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `name` CHAR,
+  `name` CHAR(25) UNIQUE,
   PRIMARY KEY  (`id`)
 );
 
 CREATE TABLE `Rooms` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `name` CHAR,
+  `name` CHAR(25) UNIQUE,
   PRIMARY KEY  (`id`)
 );
 
@@ -38,5 +38,3 @@ CREATE TABLE `Messages` (
   FOREIGN KEY (`userId`) REFERENCES Users(`id`),
   FOREIGN KEY (`roomId`) REFERENCES Rooms(`id`)
 );
-
-
